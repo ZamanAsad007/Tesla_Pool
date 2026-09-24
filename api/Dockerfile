@@ -6,6 +6,9 @@ COPY package.json ./
 RUN npm install
 
 COPY tsconfig.json ./
+COPY prisma/ ./prisma/
+RUN npx prisma generate
+
 COPY src/ ./src/
 RUN npm run build
 
@@ -18,6 +21,9 @@ ENV PORT=4000
 
 COPY package.json ./
 RUN npm install --omit=dev
+
+COPY prisma/ ./prisma/
+RUN npx prisma generate
 
 COPY --from=builder /app/dist ./dist
 
