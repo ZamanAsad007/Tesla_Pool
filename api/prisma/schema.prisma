@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+}
+
+enum Corridor {
+  NORTH
+  SOUTH
+  CENTER
+  OUTER
+}
+
+enum RideRequestStatus {
+  REQUESTED
+  MATCHED
+  ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+enum PoolStatus {
+  MATCHED
+  ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+enum PoolEventType {
+  MATCHED
+  PASSENGER_JOINED
+  PASSENGER_LEFT
+  DRIVER_ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  TESLAPAY
+}
+
+enum PaymentStatus {
+  PENDING
+  SETTLED
+  FAILED
+  WAIVED
+}
+
+model User {
+  id                 String           @id @default(uuid()) @db.Uuid
+  email              String           @unique
+  passwordHash       String           @map("password_hash")
+  name               String
+  role               UserRole
+  walletBalancePaisa Int              @default(0) @map("wallet_balance_paisa")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  teslas             Tesla[]          @relation("OwnerTeslas")
+  rideRequests       RideRequest[]    @relation("PassengerRideRequests")
+  poolMemberships    PoolMembership[] @relation("PassengerMemberships")
+  drivenPools        Pool[]           @relation("DriverPools")
+  poolEvents         PoolEvent[]      @relation("ActorPoolEvents")
+
+  @@map("users")
+}
+
+model Tesla {
+  id        String   @id @default(uuid()) @db.Uuid
+  ownerId   String   @map("owner_id") @db.Uuid
+  name      String
+  capacity  Int
+  online    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  owner     User     @relation("OwnerTeslas", fields: [ownerId], references: [id], onDelete: Cascade)
+  pools     Pool[]   @relation("TeslaPools")
+
+  @@map("teslas")
+}
+
+model Area {
+  id                   Int           @id @default(autoincrement())
+  name                 String        @unique
+  corridor             Corridor
+  lat                  Decimal       @db.Decimal(10, 7)
+  lng                  Decimal       @db.Decimal(10, 7)
+
+  pickupRideRequests   RideRequest[] @relation("PickupArea")
+  dropoffRideRequests  RideRequest[] @relation("DropoffArea")
+
+  @@map("areas")
+}
+
+model RideRequest {
+  id             String            @id @default(uuid()) @db.Uuid
+  passengerId    String            @map("passenger_id") @db.Uuid
+  pickupAreaId   Int               @map("pickup_area_id")
+  dropoffAreaId  Int               @map("dropoff_area_id")
+  seats          Int               @default(1)
+  status         RideRequestStatus @default(REQUESTED)
+  idempotencyKey String?           @unique @map("idempotency_key") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  passenger      User              @relation("PassengerRideRequests", fields: [passengerId], references: [id], onDelete: Cascade)
+  pickupArea     Area              @relation("PickupArea", fields: [pickupAreaId], references: [id])
+  dropoffArea    Area              @relation("DropoffArea", fields: [dropoffAreaId], references: [id])
+  memberships    PoolMembership[]  @relation("RideRequestMemberships")
+  fareSnapshots  FareSnapshot[]    @relation("RideRequestFareSnapshots")
+
+  @@index([status, pickupAreaId])
+  @@map("ride_requests")
+}
+
+model Pool {
+  id          String           @id @default(uuid()) @db.Uuid
+  teslaId     String           @map("tesla_id") @db.Uuid
+  driverId    String           @map("driver_id") @db.Uuid
+  status      PoolStatus       @default(MATCHED)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  tesla       Tesla            @relation("TeslaPools", fields: [teslaId], references: [id])
+  driver      User             @relation("DriverPools", fields: [driverId], references: [id])
+  memberships PoolMembership[] @relation("PoolMemberships")
+  events      PoolEvent[]      @relation("PoolAuditEvents")
+
+  @@map("pools")
+}
+
+model PoolMembership {
+  id            String       @id @default(uuid()) @db.Uuid
+  poolId        String       @map("pool_id") @db.Uuid
+  rideRequestId String       @map("ride_request_id") @db.Uuid
+  passengerId   String       @map("passenger_id") @db.Uuid
+  seatCount     Int          @map("seat_count")
+  farePaisa     Int          @map("fare_paisa")
+  joinedAt      DateTime     @default(now()) @map("joined_at") @db.Timestamptz
+  leftAt        DateTime?    @map("left_at") @db.Timestamptz
+
+  pool          Pool         @relation("PoolMemberships", fields: [poolId], references: [id], onDelete: Cascade)
+  rideRequest   RideRequest  @relation("RideRequestMemberships", fields: [rideRequestId], references: [id], onDelete: Cascade)
+  passenger     User         @relation("PassengerMemberships", fields: [passengerId], references: [id])
+  payments      Payment[]    @relation("MembershipPayments")
+
+  @@map("pool_memberships")
+}
+
+model FareSnapshot {
+  id            String      @id @default(uuid()) @db.Uuid
+  rideRequestId String      @map("ride_request_id") @db.Uuid
+  basePaisa     Int         @map("base_paisa")
+  distancePaisa Int         @map("distance_paisa")
+  discountPaisa Int         @map("discount_paisa")
+  totalPaisa    Int         @map("total_paisa")
+  breakdown     Json
+  quotedAt      DateTime    @default(now()) @map("quoted_at") @db.Timestamptz
+
+  rideRequest   RideRequest @relation("RideRequestFareSnapshots", fields: [rideRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([rideRequestId, quotedAt])
+  @@map("fare_snapshots")
+}
+
+model PoolEvent {
+  id        String         @id @default(uuid()) @db.Uuid
+  poolId    String         @map("pool_id") @db.Uuid
+  actorId   String         @map("actor_id") @db.Uuid
+  event     PoolEventType
+  meta      Json           @default("{}")
+  at        DateTime       @default(now()) @db.Timestamptz
+
+  pool      Pool           @relation("PoolAuditEvents", fields: [poolId], references: [id], onDelete: Cascade)
+  actor     User           @relation("ActorPoolEvents", fields: [actorId], references: [id])
+
+  @@map("pool_events")
+}
+
+model Payment {
+  id           String         @id @default(uuid()) @db.Uuid
+  membershipId String         @map("membership_id") @db.Uuid
+  method       PaymentMethod
+  status       PaymentStatus  @default(PENDING)
+  amountPaisa  Int            @map("amount_paisa")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  paidAt       DateTime?      @map("paid_at") @db.Timestamptz
+
+  membership   PoolMembership @relation("MembershipPayments", fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}

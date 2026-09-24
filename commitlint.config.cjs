@@ -14,5 +14,6 @@ module.exports = {
         'build',
       ],
     ],
+    'header-max-length': [2, 'always', 120],
   },
 };
