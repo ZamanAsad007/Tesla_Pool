@@ -6,6 +6,7 @@ import { logger } from './config/logger';
 import { errorHandler } from './middleware/errorHandler';
 
 import { healthRouter } from './modules/health/health.routes';
+import { authRouter } from './modules/auth/auth.routes';
 
 const app = express();
 
@@ -42,6 +43,9 @@ app.use(
 // Health check endpoints
 app.use('/health', healthRouter);
 app.use('/api/v1/health', healthRouter);
+
+// Auth endpoints
+app.use('/api/v1/auth', authRouter);
 
 // Centralized error handling
 app.use(errorHandler);
