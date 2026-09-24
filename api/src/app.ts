@@ -5,6 +5,8 @@ import pinoHttp from 'pino-http';
 import { logger } from './config/logger';
 import { errorHandler } from './middleware/errorHandler';
 
+import { healthRouter } from './modules/health/health.routes';
+
 const app = express();
 
 // Security headers
@@ -38,13 +40,8 @@ app.use(
 );
 
 // Health check endpoints
-app.get('/health', (_req, res) => {
-  res.status(200).json({ ok: true, status: 'healthy' });
-});
-
-app.get('/api/v1/health', (_req, res) => {
-  res.status(200).json({ ok: true, status: 'healthy' });
-});
+app.use('/health', healthRouter);
+app.use('/api/v1/health', healthRouter);
 
 // Centralized error handling
 app.use(errorHandler);
