@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Package locks
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Production build
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
