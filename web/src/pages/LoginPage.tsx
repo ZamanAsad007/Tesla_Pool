@@ -186,7 +186,7 @@ export function LoginPage() {
               <span className="inline-block w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <span>{isRegister ? 'Register & Continue' : 'Sign In'}</span>
+                <span>{isRegister ? 'Register & Continue' : 'Sign In to Account'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

@@ -8,6 +8,8 @@ import { LoginPage } from './pages/LoginPage';
 import { RequestRidePage } from './pages/passenger/RequestRidePage';
 import { ActiveRidePage } from './pages/passenger/ActiveRidePage';
 import { RideHistoryPage } from './pages/passenger/RideHistoryPage';
+import { DriverDashboardPage } from './pages/driver/DriverDashboardPage';
+import { ActivePoolPage } from './pages/driver/ActivePoolPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,10 +56,18 @@ export default function App() {
                   }
                 />
                 <Route
-                  path="/driver/*"
+                  path="/driver/dashboard"
                   element={
                     <ProtectedRoute allowedRoles={['DRIVER']}>
-                      <div className="p-8 text-center text-slate-400">Driver Portal</div>
+                      <DriverDashboardPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/driver/pool/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={['DRIVER']}>
+                      <ActivePoolPage />
                     </ProtectedRoute>
                   }
                 />
