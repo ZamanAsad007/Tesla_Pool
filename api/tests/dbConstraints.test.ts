@@ -80,6 +80,9 @@ describe('Database Schema & Constraints', () => {
     await prisma.tesla.deleteMany();
     await prisma.area.deleteMany();
     await prisma.user.deleteMany();
+    // Re-seed demo data so the database remains populated for manual use & docker
+    const { main } = await import('../prisma/seed');
+    await main();
     await prisma.$disconnect();
   });
 

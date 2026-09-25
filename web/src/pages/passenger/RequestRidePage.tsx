@@ -49,6 +49,10 @@ export function RequestRidePage() {
           const uttara = data.find((a) => a.name === 'Uttara') || data[1];
           setPickupAreaId(banani.id);
           setDropoffAreaId(uttara.id);
+        } else if (data.length === 1) {
+          setPickupAreaId(data[0].id);
+        } else {
+          setError('No service areas currently loaded in the system.');
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load service areas');
@@ -166,6 +170,9 @@ export function RequestRidePage() {
                 onChange={(e) => setPickupAreaId(Number(e.target.value))}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
+                <option value="" disabled>
+                  Select pickup location
+                </option>
                 {areas.map((area) => (
                   <option key={area.id} value={area.id}>
                     {area.name} ({area.corridor})
@@ -185,6 +192,9 @@ export function RequestRidePage() {
                 onChange={(e) => setDropoffAreaId(Number(e.target.value))}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
+                <option value="" disabled>
+                  Select dropoff destination
+                </option>
                 {areas.map((area) => (
                   <option key={area.id} value={area.id}>
                     {area.name} ({area.corridor})
