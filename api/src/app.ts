@@ -35,6 +35,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   pinoHttp({
     logger,
+    genReqId: (req) => (req.headers['x-request-id'] as string) || crypto.randomUUID(),
+    customProps: (req) => ({
+      actorId: (req as any).user?.id || null,
+    }),
     customLogLevel: (_req, res, err) => {
       if (res.statusCode >= 500 || err) return 'error';
       if (res.statusCode >= 400) return 'warn';
