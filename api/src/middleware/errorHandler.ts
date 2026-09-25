@@ -9,6 +9,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
+  // 1. Domain / Application errors
   if (err instanceof AppError) {
     logger.warn(
       {
@@ -33,6 +34,7 @@ export function errorHandler(
     return;
   }
 
+  // 2. Zod validation errors -> normalized 422 response
   if (err instanceof ZodError) {
     const issues = err.errors.map((e) => ({
       field: e.path.join('.'),
@@ -51,7 +53,20 @@ export function errorHandler(
     return;
   }
 
-  // Unknown / unhandled error
+  // 3. SyntaxError (e.g. malformed JSON body parsed by express.json())
+  if (err instanceof SyntaxError && 'body' in err) {
+    logger.warn({ path: req.path, method: req.method }, 'Malformed JSON body');
+
+    res.status(400).json({
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Malformed JSON payload in request body',
+      },
+    });
+    return;
+  }
+
+  // 4. Unknown / unhandled error -> 500
   logger.error(
     {
       err: {
