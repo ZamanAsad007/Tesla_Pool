@@ -74,25 +74,20 @@ export async function main() {
   });
 
   // 2. Seed Tesla: Bullet for Jashim (capacity 3, online)
-  let bullet = await prisma.tesla.findFirst({
-    where: { ownerId: jashim.id, name: 'Bullet' },
+  const bullet = await prisma.tesla.upsert({
+    where: { ownerId: jashim.id },
+    update: {
+      name: 'Bullet',
+      capacity: 3,
+      online: true,
+    },
+    create: {
+      name: 'Bullet',
+      capacity: 3,
+      ownerId: jashim.id,
+      online: true,
+    },
   });
-
-  if (!bullet) {
-    bullet = await prisma.tesla.create({
-      data: {
-        name: 'Bullet',
-        capacity: 3,
-        ownerId: jashim.id,
-        online: true,
-      },
-    });
-  } else {
-    bullet = await prisma.tesla.update({
-      where: { id: bullet.id },
-      data: { capacity: 3, online: true },
-    });
-  }
 
   // 3. Seed Areas with Corridors (DESIGN.md §3)
   const areasData = [

@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc prisma/seed.ts --outDir dist --module CommonJS --target ES2022 --moduleResolution node --skipLibCheck --esModuleInterop",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run"

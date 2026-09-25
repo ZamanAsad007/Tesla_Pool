@@ -2,10 +2,9 @@ import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
 import { CreateTeslaInput, UpdateTeslaInput } from './schemas';
 
-export async function getDriverTeslas(driverId: string) {
-  return prisma.tesla.findMany({
+export async function getDriverTesla(driverId: string) {
+  return prisma.tesla.findUnique({
     where: { ownerId: driverId },
-    orderBy: { createdAt: 'desc' },
   });
 }
 
@@ -26,6 +25,14 @@ export async function getTeslaById(teslaId: string, actorId: string) {
 }
 
 export async function createTesla(driverId: string, input: CreateTeslaInput) {
+  const existing = await prisma.tesla.findUnique({
+    where: { ownerId: driverId },
+  });
+
+  if (existing) {
+    throw new AppError('TESLA_EXISTS', 409, 'Driver already has a registered vehicle');
+  }
+
   if (input.capacity <= 0) {
     throw new AppError('INVALID_CAPACITY', 422, 'Vehicle capacity must be greater than 0');
   }
@@ -44,16 +51,10 @@ export async function updateTesla(teslaId: string, actorId: string, input: Updat
   // Check ownership (throws 403 if not owner, 404 if not found)
   await getTeslaById(teslaId, actorId);
 
-  if (input.capacity !== undefined && input.capacity <= 0) {
-    throw new AppError('INVALID_CAPACITY', 422, 'Vehicle capacity must be greater than 0');
-  }
-
   return prisma.tesla.update({
     where: { id: teslaId },
     data: {
-      ...(input.online !== undefined ? { online: input.online } : {}),
-      ...(input.name ? { name: input.name.trim() } : {}),
-      ...(input.capacity ? { capacity: input.capacity } : {}),
+      online: input.online,
     },
   });
 }

@@ -67,7 +67,7 @@ model User {
   walletBalancePaisa Int              @default(0) @map("wallet_balance_paisa")
   createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
-  teslas             Tesla[]          @relation("OwnerTeslas")
+  tesla              Tesla?           @relation("OwnerTeslas")
   rideRequests       RideRequest[]    @relation("PassengerRideRequests")
   poolMemberships    PoolMembership[] @relation("PassengerMemberships")
   drivenPools        Pool[]           @relation("DriverPools")
@@ -78,7 +78,7 @@ model User {
 
 model Tesla {
   id        String   @id @default(uuid()) @db.Uuid
-  ownerId   String   @map("owner_id") @db.Uuid
+  ownerId   String   @unique @map("owner_id") @db.Uuid
   name      String
   capacity  Int
   online    Boolean  @default(false)
