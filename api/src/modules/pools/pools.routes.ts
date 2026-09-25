@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
-import { createPoolSchema, leavePoolSchema } from './schemas';
+import { createPoolSchema, joinPoolSchema, leavePoolSchema } from './schemas';
 import {
   handleCreatePool,
+  handleJoinPool,
   handleGetPool,
   handleArrivePool,
   handleStartPool,
@@ -21,6 +22,15 @@ poolsRouter.post(
   requireRole('DRIVER'),
   validate(createPoolSchema),
   handleCreatePool
+);
+
+// Driver adds second/third passenger (the seat race endpoint)
+poolsRouter.post(
+  '/:id/join',
+  requireAuth,
+  requireRole('DRIVER'),
+  validate(joinPoolSchema),
+  handleJoinPool
 );
 
 // Get pool view (scoped)

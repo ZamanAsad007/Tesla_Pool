@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import {
   createPoolFromRequest,
+  joinPool,
   transitionPool,
   leavePool,
   getPoolById,
@@ -14,6 +15,19 @@ export async function handleCreatePool(
   try {
     const pool = await createPoolFromRequest(req.user!.id, req.body);
     res.status(201).json({ pool });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function handleJoinPool(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await joinPool(req.params.id, req.body, req.user!);
+    res.json(result);
   } catch (error) {
     next(error);
   }

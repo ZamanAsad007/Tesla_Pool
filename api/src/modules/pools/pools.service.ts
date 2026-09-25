@@ -1,8 +1,11 @@
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
 import { AuthenticatedUser } from '../../middleware/auth';
-import { CreatePoolInput } from './schemas';
+import { CreatePoolInput, JoinPoolInput } from './schemas';
 import { PoolStatus, PoolEventType } from '@prisma/client';
+import { canJoin } from './matching';
+import { calculateDistanceKm } from '../areas/distance';
+import { calculatePooledFare } from '../fares/fares.service';
 
 export const LEGAL_TRANSITIONS: Record<PoolStatus, PoolStatus[]> = {
   MATCHED: ['ARRIVED', 'CANCELLED'],
@@ -44,6 +47,8 @@ export async function createPoolFromRequest(driverId: string, input: CreatePoolI
   const rideRequest = await prisma.rideRequest.findUnique({
     where: { id: input.rideRequestId },
     include: {
+      pickupArea: true,
+      dropoffArea: true,
       fareSnapshots: {
         orderBy: { quotedAt: 'desc' },
         take: 1,
@@ -70,6 +75,8 @@ export async function createPoolFromRequest(driverId: string, input: CreatePoolI
         teslaId: tesla.id,
         driverId,
         status: 'MATCHED',
+        occupiedSeats: rideRequest.seats,
+        capacitySnapshot: tesla.capacity,
       },
       include: {
         tesla: true,
@@ -112,6 +119,174 @@ export async function createPoolFromRequest(driverId: string, input: CreatePoolI
   });
 }
 
+export async function joinPool(
+  poolId: string,
+  input: JoinPoolInput,
+  actor: AuthenticatedUser
+) {
+  // Fetch candidate request
+  const candidate = await prisma.rideRequest.findUnique({
+    where: { id: input.rideRequestId },
+    include: {
+      pickupArea: true,
+      dropoffArea: true,
+    },
+  });
+
+  if (!candidate) {
+    throw new AppError('RIDE_REQUEST_NOT_FOUND', 404, 'Candidate ride request not found');
+  }
+
+  if (candidate.status !== 'REQUESTED') {
+    throw new AppError(
+      'INVALID_STATE',
+      409,
+      `Cannot join pool with request in ${candidate.status} status. Must be REQUESTED.`
+    );
+  }
+
+  // Execute critical section under FOR UPDATE row lock (§8, upgrade #7)
+  return prisma.$transaction(async (tx) => {
+    const rawPools = await tx.$queryRaw<
+      Array<{
+        id: string;
+        status: PoolStatus;
+        occupied_seats: number;
+        capacity_snapshot: number;
+        driver_id: string;
+        tesla_id: string;
+      }>
+    >`
+      SELECT id, status, occupied_seats, capacity_snapshot, driver_id, tesla_id
+      FROM pools
+      WHERE id = ${poolId}::uuid
+      FOR UPDATE
+    `;
+
+    const poolRow = rawPools[0];
+    if (!poolRow) {
+      throw new AppError('POOL_NOT_FOUND', 404, 'Pool not found');
+    }
+
+    // Driver ownership verification
+    if (actor.role === 'DRIVER' && poolRow.driver_id !== actor.id) {
+      throw new AppError('FORBIDDEN', 403, 'You do not operate this pool');
+    }
+
+    // Status check
+    if (poolRow.status !== 'MATCHED' && poolRow.status !== 'ARRIVED') {
+      throw new AppError(
+        'INVALID_STATE',
+        409,
+        `Cannot join pool in ${poolRow.status} status. Must be MATCHED or ARRIVED.`
+      );
+    }
+
+    // Capacity invariant check under lock
+    if (poolRow.occupied_seats + candidate.seats > poolRow.capacity_snapshot) {
+      throw new AppError('POOL_FULL', 409, 'Vehicle has no remaining seats for this pool');
+    }
+
+    // Fetch existing active members for matching compatibility check
+    const activeMembers = await tx.poolMembership.findMany({
+      where: {
+        poolId,
+        leftAt: null,
+      },
+      include: {
+        rideRequest: {
+          include: {
+            pickupArea: true,
+            dropoffArea: true,
+          },
+        },
+      },
+    });
+
+    // Compatibility check (§7)
+    const compatibility = canJoin(
+      {
+        status: poolRow.status,
+        occupiedSeats: poolRow.occupied_seats,
+        capacitySnapshot: poolRow.capacity_snapshot,
+      },
+      activeMembers,
+      candidate
+    );
+
+    if (!compatibility.allowed) {
+      throw new AppError(
+        'NOT_COMPATIBLE',
+        409,
+        compatibility.reason || 'Candidate ride request is not compatible with this pool'
+      );
+    }
+
+    // Increment occupied seats
+    await tx.pool.update({
+      where: { id: poolId },
+      data: {
+        occupiedSeats: { increment: candidate.seats },
+      },
+    });
+
+    // Lock pooled fare for candidate rider (§6)
+    const distanceKm = calculateDistanceKm(candidate.pickupArea.name, candidate.dropoffArea.name);
+    const { pooledFarePaisa } = calculatePooledFare(distanceKm);
+
+    const membership = await tx.poolMembership.create({
+      data: {
+        poolId,
+        rideRequestId: candidate.id,
+        passengerId: candidate.passengerId,
+        seatCount: candidate.seats,
+        farePaisa: pooledFarePaisa,
+      },
+    });
+
+    // Ensure first/earlier active members also get their pooled discount (§6 table)
+    for (const mem of activeMembers) {
+      const d = calculateDistanceKm(
+        mem.rideRequest.pickupArea.name,
+        mem.rideRequest.dropoffArea.name
+      );
+      const { pooledFarePaisa: discounted } = calculatePooledFare(d);
+      if (mem.farePaisa > discounted) {
+        await tx.poolMembership.update({
+          where: { id: mem.id },
+          data: { farePaisa: discounted },
+        });
+      }
+    }
+
+    // Move candidate request to match pool's status
+    await tx.rideRequest.update({
+      where: { id: candidate.id },
+      data: { status: poolRow.status },
+    });
+
+    // Audit event: PASSENGER_JOINED
+    await tx.poolEvent.create({
+      data: {
+        poolId,
+        actorId: actor.id,
+        event: 'PASSENGER_JOINED',
+        meta: {
+          rideRequestId: candidate.id,
+          seatCount: candidate.seats,
+          farePaisa: pooledFarePaisa,
+        },
+      },
+    });
+
+    return {
+      membership,
+      occupiedSeats: poolRow.occupied_seats + candidate.seats,
+      capacitySnapshot: poolRow.capacity_snapshot,
+    };
+  });
+}
+
 export async function transitionPool(
   poolId: string,
   targetStatus: PoolStatus,
@@ -148,7 +323,6 @@ export async function transitionPool(
     throw new AppError('INVALID_STATE', 409, 'Cannot start pool with 0 active members');
   }
 
-  // Determine event type
   let eventType: PoolEventType;
   switch (targetStatus) {
     case 'ARRIVED':
@@ -186,6 +360,24 @@ export async function transitionPool(
         where: { id: membership.rideRequestId },
         data: { status: targetStatus },
       });
+
+      // On completion, initialize settlement payment record if none exists
+      if (targetStatus === 'COMPLETED') {
+        const existingPayment = await tx.payment.findFirst({
+          where: { membershipId: membership.id },
+        });
+
+        if (!existingPayment) {
+          await tx.payment.create({
+            data: {
+              membershipId: membership.id,
+              method: 'CASH',
+              status: 'PENDING',
+              amountPaisa: membership.farePaisa,
+            },
+          });
+        }
+      }
     }
 
     // 3. Emit audit event
@@ -225,7 +417,6 @@ export async function leavePool(
     throw new AppError('MEMBERSHIP_NOT_FOUND', 404, 'Active pool membership not found for this ride request');
   }
 
-  // Driver or the member passenger can trigger leave
   if (actor.role === 'PASSENGER' && membership.passengerId !== actor.id) {
     throw new AppError('NOT_FOUND', 404, 'Ride request not found');
   }
@@ -238,6 +429,14 @@ export async function leavePool(
     await tx.poolMembership.update({
       where: { id: membership.id },
       data: { leftAt: new Date() },
+    });
+
+    // Free seat on the pool
+    await tx.pool.update({
+      where: { id: poolId },
+      data: {
+        occupiedSeats: { decrement: membership.seatCount },
+      },
     });
 
     // Cancel the ride request
@@ -311,6 +510,7 @@ export async function getPoolById(poolId: string, actor: AuthenticatedUser) {
               dropoffArea: true,
             },
           },
+          payments: true,
         },
       },
       events: {
@@ -323,13 +523,12 @@ export async function getPoolById(poolId: string, actor: AuthenticatedUser) {
     throw new AppError('POOL_NOT_FOUND', 404, 'Pool not found');
   }
 
-  // Scoping: driver sees all; passenger only sees if they are/were a member
+  // Scoping: driver sees all; passenger only sees own membership
   if (actor.role === 'PASSENGER') {
     const isMember = pool.memberships.some((m) => m.passengerId === actor.id);
     if (!isMember) {
       throw new AppError('NOT_FOUND', 404, 'Pool not found');
     }
-    // Passenger only sees own membership fare per §12
     return {
       ...pool,
       memberships: pool.memberships.filter((m) => m.passengerId === actor.id),

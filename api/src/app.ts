@@ -12,6 +12,7 @@ import { teslasRouter } from './modules/teslas/teslas.routes';
 import { rideRequestsRouter } from './modules/ride-requests/ride-requests.routes';
 import { poolsRouter } from './modules/pools/pools.routes';
 import { driverRouter } from './modules/driver/driver.routes';
+import { paymentsRouter } from './modules/payments/payments.routes';
 
 const app = express();
 
@@ -56,6 +57,7 @@ app.use('/api/v1/teslas', teslasRouter);
 app.use('/api/v1/ride-requests', rideRequestsRouter);
 app.use('/api/v1/pools', poolsRouter);
 app.use('/api/v1/driver', driverRouter);
+app.use('/api/v1/payments', paymentsRouter);
 
 // Centralized error handling
 app.use(errorHandler);
