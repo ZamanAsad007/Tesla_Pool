@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { getDriverTeslas, getTeslaById, createTesla, updateTesla } from './teslas.service';
+import { getDriverTesla, getTeslaById, createTesla, updateTesla } from './teslas.service';
 
-export async function handleGetMyTeslas(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function handleGetMyTesla(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const teslas = await getDriverTeslas(req.user!.id);
-    res.json({ teslas });
+    const tesla = await getDriverTesla(req.user!.id);
+    res.json({ tesla });
   } catch (error) {
     next(error);
   }

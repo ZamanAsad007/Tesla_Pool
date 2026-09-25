@@ -97,17 +97,39 @@ describe('Phase 3: Teslas and Areas Integration Tests', () => {
         .set('Authorization', `Bearer ${driverToken}`);
 
       expect(res.status).toBe(200);
-      const bullet = res.body.teslas.find((t: any) => t.id === bulletId);
-      expect(bullet).toBeDefined();
-      expect(bullet.name).toBe('Bullet');
-      expect(bullet.capacity).toBe(3);
-      expect(bullet.online).toBe(true);
+      expect(res.body.tesla).toBeDefined();
+      expect(res.body.tesla.id).toBe(bulletId);
+      expect(res.body.tesla.name).toBe('Bullet');
+      expect(res.body.tesla.capacity).toBe(3);
+      expect(res.body.tesla.online).toBe(true);
     });
 
-    it('driver can create a new tesla with capacity > 0', async () => {
+    it('GET /api/v1/teslas/mine returns null if driver has not yet registered a vehicle', async () => {
+      const res = await request(app)
+        .get('/api/v1/teslas/mine')
+        .set('Authorization', `Bearer ${otherDriverToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.tesla).toBeNull();
+    });
+
+    it('returns 409 TESLA_EXISTS when driver already has a registered vehicle', async () => {
       const res = await request(app)
         .post('/api/v1/teslas')
         .set('Authorization', `Bearer ${driverToken}`)
+        .send({
+          name: 'Second Bullet',
+          capacity: 3,
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('TESLA_EXISTS');
+    });
+
+    it('allows a driver without a vehicle to create a new tesla', async () => {
+      const res = await request(app)
+        .post('/api/v1/teslas')
+        .set('Authorization', `Bearer ${otherDriverToken}`)
         .send({
           name: 'Bijli',
           capacity: 3,
@@ -118,14 +140,33 @@ describe('Phase 3: Teslas and Areas Integration Tests', () => {
       expect(res.body.tesla.capacity).toBe(3);
       expect(res.body.tesla.online).toBe(false);
 
-      // Clean up
-      await prisma.tesla.delete({ where: { id: res.body.tesla.id } });
+      // Subsequent create attempt for otherDriver should fail with 409
+      const secondRes = await request(app)
+        .post('/api/v1/teslas')
+        .set('Authorization', `Bearer ${otherDriverToken}`)
+        .send({
+          name: 'Bijli 2',
+          capacity: 3,
+        });
+
+      expect(secondRes.status).toBe(409);
+      expect(secondRes.body.error.code).toBe('TESLA_EXISTS');
     });
 
     it('rejects tesla creation when capacity is invalid', async () => {
+      // Register a third driver to test invalid capacity on a driver without a vehicle
+      const thirdDriver = await request(app)
+        .post('/api/v1/auth/register')
+        .send({
+          email: 'third_driver@test.com',
+          password: 'password123',
+          name: 'Third Driver',
+          role: 'DRIVER',
+        });
+
       const res = await request(app)
         .post('/api/v1/teslas')
-        .set('Authorization', `Bearer ${driverToken}`)
+        .set('Authorization', `Bearer ${thirdDriver.body.token}`)
         .send({
           name: 'Invalid Tesla',
           capacity: 0,
@@ -133,6 +174,9 @@ describe('Phase 3: Teslas and Areas Integration Tests', () => {
 
       expect(res.status).toBe(422);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
+
+      // Cleanup third driver
+      await prisma.user.delete({ where: { email: 'third_driver@test.com' } });
     });
 
     it('driver can toggle online status on own vehicle', async () => {
@@ -151,6 +195,16 @@ describe('Phase 3: Teslas and Areas Integration Tests', () => {
 
       expect(toggleOn.status).toBe(200);
       expect(toggleOn.body.tesla.online).toBe(true);
+    });
+
+    it('rejects patch without online flag with 422 VALIDATION_ERROR', async () => {
+      const res = await request(app)
+        .patch(`/api/v1/teslas/${bulletId}`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .send({ name: 'Renamed' });
+
+      expect(res.status).toBe(422);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
     });
 
     it('forbids passenger role from accessing tesla management (403)', async () => {
