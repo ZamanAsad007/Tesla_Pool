@@ -139,6 +139,9 @@ CREATE TABLE "payments" (
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "teslas_owner_id_key" ON "teslas"("owner_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "areas_name_key" ON "areas"("name");
 
 -- CreateIndex
