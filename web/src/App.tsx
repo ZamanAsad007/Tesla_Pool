@@ -5,6 +5,9 @@ import { Navbar } from './components/Navbar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
+import { RequestRidePage } from './pages/passenger/RequestRidePage';
+import { ActiveRidePage } from './pages/passenger/ActiveRidePage';
+import { RideHistoryPage } from './pages/passenger/RideHistoryPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,10 +30,26 @@ export default function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route
-                  path="/passenger/*"
+                  path="/passenger/request"
                   element={
                     <ProtectedRoute allowedRoles={['PASSENGER']}>
-                      <div className="p-8 text-center text-slate-400">Passenger Portal</div>
+                      <RequestRidePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/passenger/history"
+                  element={
+                    <ProtectedRoute allowedRoles={['PASSENGER']}>
+                      <RideHistoryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/passenger/ride/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={['PASSENGER']}>
+                      <ActiveRidePage />
                     </ProtectedRoute>
                   }
                 />
