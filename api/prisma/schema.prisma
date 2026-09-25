@@ -126,10 +126,12 @@ model RideRequest {
 
 model Pool {
   id          String           @id @default(uuid()) @db.Uuid
-  teslaId     String           @map("tesla_id") @db.Uuid
-  driverId    String           @map("driver_id") @db.Uuid
-  status      PoolStatus       @default(MATCHED)
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  teslaId          String           @map("tesla_id") @db.Uuid
+  driverId         String           @map("driver_id") @db.Uuid
+  occupiedSeats    Int              @default(0) @map("occupied_seats")
+  capacitySnapshot Int              @default(3) @map("capacity_snapshot")
+  status           PoolStatus       @default(MATCHED)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   tesla       Tesla            @relation("TeslaPools", fields: [teslaId], references: [id])
