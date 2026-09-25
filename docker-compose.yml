@@ -22,7 +22,7 @@ services:
     ports: ["4000:4000"]
     depends_on:
       db: { condition: service_healthy }
-    command: sh -c "if [ -f prisma/schema.prisma ] && [ -d prisma/migrations ]; then npx prisma migrate deploy && node prisma/seed.js; fi && node dist/index.js"
+    command: sh -c "if [ -f prisma/schema.prisma ] && [ -d prisma/migrations ]; then npx prisma migrate deploy && if [ -f dist/prisma/seed.js ]; then node dist/prisma/seed.js; fi; fi && node dist/index.js"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
       interval: 5s
