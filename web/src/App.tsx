@@ -7,6 +7,7 @@ import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { RequestRidePage } from './pages/passenger/RequestRidePage';
 import { ActiveRidePage } from './pages/passenger/ActiveRidePage';
+import { RideHistoryPage } from './pages/passenger/RideHistoryPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +34,14 @@ export default function App() {
                   element={
                     <ProtectedRoute allowedRoles={['PASSENGER']}>
                       <RequestRidePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/passenger/history"
+                  element={
+                    <ProtectedRoute allowedRoles={['PASSENGER']}>
+                      <RideHistoryPage />
                     </ProtectedRoute>
                   }
                 />
