@@ -83,13 +83,35 @@ describe('Database Schema & Constraints', () => {
     await prisma.$disconnect();
   });
 
+  it('enforces one tesla per driver (uniqueness on owner_id)', async () => {
+    // driverId already owns teslaId from beforeAll
+    await expect(
+      prisma.tesla.create({
+        data: {
+          name: 'Duplicate Tesla',
+          capacity: 3,
+          ownerId: driverId,
+        },
+      })
+    ).rejects.toThrow();
+  });
+
   it('rejects tesla with capacity <= 0 via check constraint', async () => {
+    const otherDriver = await prisma.user.create({
+      data: {
+        email: 'driver_cap_test@example.com',
+        name: 'Cap Test Driver',
+        passwordHash: 'hash',
+        role: 'DRIVER',
+      },
+    });
+
     await expect(
       prisma.tesla.create({
         data: {
           name: 'Invalid Tesla',
           capacity: 0,
-          ownerId: driverId,
+          ownerId: otherDriver.id,
         },
       })
     ).rejects.toThrow();
