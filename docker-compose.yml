@@ -22,7 +22,7 @@ services:
     ports: ["4000:4000"]
     depends_on:
       db: { condition: service_healthy }
-    command: sh -c "npx prisma migrate deploy && if [ -f prisma/seed.js ]; then node prisma/seed.js; fi && node dist/index.js"
+    command: sh -c "npx prisma migrate deploy && if [ -f dist/prisma/seed.js ]; then node dist/prisma/seed.js; fi && node dist/index.js"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
       interval: 5s
