@@ -9,6 +9,7 @@ import { RequestRidePage } from './pages/passenger/RequestRidePage';
 import { ActiveRidePage } from './pages/passenger/ActiveRidePage';
 import { RideHistoryPage } from './pages/passenger/RideHistoryPage';
 import { DriverDashboardPage } from './pages/driver/DriverDashboardPage';
+import { ActivePoolPage } from './pages/driver/ActivePoolPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,14 @@ export default function App() {
                   element={
                     <ProtectedRoute allowedRoles={['DRIVER']}>
                       <DriverDashboardPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/driver/pool/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={['DRIVER']}>
+                      <ActivePoolPage />
                     </ProtectedRoute>
                   }
                 />
