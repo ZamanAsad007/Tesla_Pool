@@ -9,6 +9,7 @@ import { healthRouter } from './modules/health/health.routes';
 import { authRouter } from './modules/auth/auth.routes';
 import { areasRouter } from './modules/areas/areas.routes';
 import { teslasRouter } from './modules/teslas/teslas.routes';
+import { rideRequestsRouter } from './modules/ride-requests/ride-requests.routes';
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use('/api/v1/health', healthRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/areas', areasRouter);
 app.use('/api/v1/teslas', teslasRouter);
+app.use('/api/v1/ride-requests', rideRequestsRouter);
 
 // Centralized error handling
 app.use(errorHandler);
