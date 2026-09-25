@@ -233,5 +233,23 @@ describe('Frontend Component & Flow Suite', () => {
 
       expect(twoSeatsBtn.closest('button')).toHaveClass('border-emerald-500');
     });
+
+    it('handles backend envelope { areas: [...] } correctly', async () => {
+      vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
+        areas: [
+          { id: 10, name: 'Banani', corridor: 'NORTH' },
+          { id: 20, name: 'Uttara', corridor: 'OUTER' },
+        ],
+      });
+
+      renderWithProviders(<RequestRidePage />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 1, name: /Request an Easy-Bike/i })).toBeInTheDocument();
+      });
+
+      expect(screen.getByDisplayValue(/Banani/i)).toBeInTheDocument();
+      expect(screen.getByDisplayValue(/Uttara/i)).toBeInTheDocument();
+    });
   });
 });

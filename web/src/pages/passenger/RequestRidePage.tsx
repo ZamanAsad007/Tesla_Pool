@@ -40,7 +40,8 @@ export function RequestRidePage() {
   useEffect(() => {
     async function loadAreas() {
       try {
-        const data = await apiClient.get<Area[]>('/areas');
+        const res = await apiClient.get<any>('/areas');
+        const data: Area[] = Array.isArray(res) ? res : (res?.areas || []);
         setAreas(data);
         if (data.length >= 2) {
           // Default to Banani -> Uttara or first two
@@ -97,7 +98,8 @@ export function RequestRidePage() {
         setError('You already have an active ride request in progress.');
         // Try fetching active ride to link to it
         try {
-          const myRides = await apiClient.get<any[]>('/ride-requests/mine');
+          const myRidesRes = await apiClient.get<any>('/ride-requests/mine');
+          const myRides: any[] = Array.isArray(myRidesRes) ? myRidesRes : (myRidesRes?.requests || []);
           const active = myRides.find((r) =>
             ['REQUESTED', 'MATCHED', 'ARRIVED', 'STARTED'].includes(r.status)
           );

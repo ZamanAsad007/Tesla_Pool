@@ -65,13 +65,19 @@ export function DriverDashboardPage() {
     error: teslaError,
   } = useQuery<TeslaVehicle | null>({
     queryKey: ['my-tesla'],
-    queryFn: () => apiClient.get<TeslaVehicle>('/teslas/mine'),
+    queryFn: async () => {
+      const res = await apiClient.get<any>('/teslas/mine');
+      return (res?.tesla ?? res) as TeslaVehicle | null;
+    },
   });
 
   // 2. Fetch areas for filter dropdown
   const { data: areas = [] } = useQuery<Area[]>({
     queryKey: ['areas'],
-    queryFn: () => apiClient.get<Area[]>('/areas'),
+    queryFn: async () => {
+      const res = await apiClient.get<any>('/areas');
+      return (Array.isArray(res) ? res : res?.areas || []) as Area[];
+    },
   });
 
   // 3. Fetch open requests feed (poll every 5s if online)
@@ -82,11 +88,12 @@ export function DriverDashboardPage() {
     isRefetching: isRefetchingFeed,
   } = useQuery<OpenRideRequest[]>({
     queryKey: ['open-requests', selectedAreaId],
-    queryFn: () => {
+    queryFn: async () => {
       const url = selectedAreaId
         ? `/driver/requests?areaId=${selectedAreaId}`
         : '/driver/requests';
-      return apiClient.get<OpenRideRequest[]>(url);
+      const res = await apiClient.get<any>(url);
+      return (Array.isArray(res) ? res : res?.requests || []) as OpenRideRequest[];
     },
     enabled: !!tesla?.online,
     refetchInterval: tesla?.online ? 5000 : false,
@@ -94,9 +101,10 @@ export function DriverDashboardPage() {
 
   // 4. Toggle online status mutation
   const toggleOnlineMutation = useMutation({
-    mutationFn: (newStatus: boolean) => {
+    mutationFn: async (newStatus: boolean) => {
       if (!tesla) throw new Error('No vehicle registered');
-      return apiClient.patch<TeslaVehicle>(`/teslas/${tesla.id}`, { online: newStatus });
+      const res = await apiClient.patch<any>(`/teslas/${tesla.id}`, { online: newStatus });
+      return (res?.tesla ?? res) as TeslaVehicle;
     },
     onSuccess: (updated) => {
       setErrorMsg(null);
@@ -110,8 +118,10 @@ export function DriverDashboardPage() {
 
   // 5. Accept request and create pool mutation
   const createPoolMutation = useMutation({
-    mutationFn: (rideRequestId: string) =>
-      apiClient.post<{ id: string }>('/pools', { rideRequestId }),
+    mutationFn: async (rideRequestId: string) => {
+      const res = await apiClient.post<any>('/pools', { rideRequestId });
+      return (res?.pool ?? res) as { id: string };
+    },
     onSuccess: (res) => {
       setErrorMsg(null);
       navigate(`/driver/pool/${res.id}`);

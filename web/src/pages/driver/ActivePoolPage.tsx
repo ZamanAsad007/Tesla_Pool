@@ -116,7 +116,10 @@ export function ActivePoolPage() {
     error: poolError,
   } = useQuery<PoolDetail>({
     queryKey: ['driver-pool', id],
-    queryFn: () => apiClient.get<PoolDetail>(`/pools/${id}`),
+    queryFn: async () => {
+      const res = await apiClient.get<any>(`/pools/${id}`);
+      return (res?.pool ?? res) as PoolDetail;
+    },
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === 'COMPLETED' || status === 'CANCELLED' ? false : 5000;
@@ -127,7 +130,10 @@ export function ActivePoolPage() {
   // 2. Fetch Candidate Open Requests for adding riders
   const { data: candidates = [], isLoading: isLoadingCandidates } = useQuery<CandidateRequest[]>({
     queryKey: ['candidate-requests'],
-    queryFn: () => apiClient.get<CandidateRequest[]>('/driver/requests'),
+    queryFn: async () => {
+      const res = await apiClient.get<any>('/driver/requests');
+      return (Array.isArray(res) ? res : res?.requests || []) as CandidateRequest[];
+    },
     enabled: showAddRiderModal && !!pool && pool.occupiedSeats < pool.capacitySnapshot,
   });
 

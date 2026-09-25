@@ -104,7 +104,10 @@ export function ActiveRidePage() {
     error: rideError,
   } = useQuery<RideRequestDetail>({
     queryKey: ['ride-request', id],
-    queryFn: () => apiClient.get<RideRequestDetail>(`/ride-requests/${id}`),
+    queryFn: async () => {
+      const res = await apiClient.get<any>(`/ride-requests/${id}`);
+      return (res?.request ?? res) as RideRequestDetail;
+    },
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === 'COMPLETED' || status === 'CANCELLED' ? false : 5000;
@@ -115,7 +118,10 @@ export function ActiveRidePage() {
   // Poll pool details if ride is attached to a pool
   const { data: pool } = useQuery<PoolDetail>({
     queryKey: ['pool', ride?.poolId],
-    queryFn: () => apiClient.get<PoolDetail>(`/pools/${ride?.poolId}`),
+    queryFn: async () => {
+      const res = await apiClient.get<any>(`/pools/${ride?.poolId}`);
+      return (res?.pool ?? res) as PoolDetail;
+    },
     refetchInterval: 5000,
     enabled: !!ride?.poolId,
   });
