@@ -70,6 +70,13 @@ describe('Phase 6: Tesla Pooling, Matching, Fares, Payments & Concurrency Tests'
     await prisma.pool.deleteMany();
     await prisma.fareSnapshot.deleteMany();
     await prisma.rideRequest.deleteMany();
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: ['p4@passenger.test', 'competitor@passenger.test', 'broke@passenger.test'],
+        },
+      },
+    });
     await prisma.$disconnect();
   });
 
@@ -80,6 +87,13 @@ describe('Phase 6: Tesla Pooling, Matching, Fares, Payments & Concurrency Tests'
     await prisma.pool.deleteMany();
     await prisma.fareSnapshot.deleteMany();
     await prisma.rideRequest.deleteMany();
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: ['p4@passenger.test', 'competitor@passenger.test', 'broke@passenger.test'],
+        },
+      },
+    });
   });
 
   describe('T3: Fare Model (§6 exact numbers)', () => {
@@ -169,7 +183,7 @@ describe('Phase 6: Tesla Pooling, Matching, Fares, Payments & Concurrency Tests'
       // Rafiq: Banani -> Farmgate (CENTER corridor)
       const r2 = await request(app)
         .post('/api/v1/ride-requests')
-        .set('Authorization', `Bearer ${secondPassengerToken = rafiqToken}`)
+        .set('Authorization', `Bearer ${rafiqToken}`)
         .send({ pickupAreaId: bananiId, dropoffAreaId: farmgateId, seats: 1 });
 
       // Driver tries to join Rafiq into Nusrat's NORTH pool -> 409 NOT_COMPATIBLE
@@ -317,8 +331,6 @@ describe('Phase 6: Tesla Pooling, Matching, Fares, Payments & Concurrency Tests'
       const poolCheck = await prisma.pool.findUnique({ where: { id: poolId } });
       expect(poolCheck!.occupiedSeats).toBe(3);
 
-      // Cleanup competitor
-      await prisma.user.delete({ where: { email: 'competitor@passenger.test' } });
     });
   });
 
@@ -411,8 +423,6 @@ describe('Phase 6: Tesla Pooling, Matching, Fares, Payments & Concurrency Tests'
       const checkPayment = await prisma.payment.findUnique({ where: { id: payment!.id } });
       expect(checkPayment!.status).toBe('PENDING');
 
-      // Cleanup broke passenger
-      await prisma.user.delete({ where: { id: brokeId } });
     });
   });
 });
