@@ -180,6 +180,16 @@ describe('Phase 5: Driver Flow & Pool Lifecycle Integration Tests', () => {
 
       expect(res2.status).toBe(409);
       expect(res2.body.error.code).toBe('TESLA_BUSY');
+      expect(res2.body.error.details?.poolId).toBeDefined();
+
+      // Driver can retrieve their active pool via /driver/active-pool
+      const activeRes = await request(app)
+        .get('/api/v1/driver/active-pool')
+        .set('Authorization', `Bearer ${driverToken}`);
+      expect(activeRes.status).toBe(200);
+      expect(activeRes.body.pool).toBeDefined();
+      expect(activeRes.body.pool.id).toBe(res2.body.error.details.poolId);
+      expect(activeRes.body.pool.status).toBe('MATCHED');
     });
   });
 

@@ -40,7 +40,9 @@ export async function createPoolFromRequest(driverId: string, input: CreatePoolI
   });
 
   if (activePool) {
-    throw new AppError('TESLA_BUSY', 409, 'Tesla already operates an active pool');
+    throw new AppError('TESLA_BUSY', 409, 'Tesla already operates an active pool', {
+      poolId: activePool.id,
+    });
   }
 
   // 3. Find and validate the requested ride
