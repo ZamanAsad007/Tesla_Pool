@@ -8,7 +8,7 @@ export async function handleGetOpenRequests(
 ): Promise<void> {
   try {
     const areaId = req.query.areaId ? Number(req.query.areaId) : undefined;
-    const requests = await getOpenRequests(areaId);
+    const requests = await getOpenRequests(areaId, req.user?.id);
     res.json({ requests });
   } catch (error) {
     next(error);
