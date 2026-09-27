@@ -4,8 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MapPin,
   Users,
-  Car,
-  Zap,
   AlertTriangle,
   CheckCircle2,
   Wallet,
@@ -245,7 +243,7 @@ export function ActiveRidePage() {
           <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Car className="w-4 h-4 text-emerald-400" />
+                <img src="/logo.svg" alt="" className="w-4 h-4 object-contain" />
                 <span className="text-xs font-semibold text-white uppercase tracking-wider">
                   Assigned Electric Rickshaw
                 </span>
@@ -389,7 +387,7 @@ export function ActiveRidePage() {
               to="/passenger/request"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20"
             >
-              <Zap className="w-3.5 h-3.5" />
+              <img src="/logo.svg" alt="" className="w-4 h-4 object-contain brightness-0" />
               Request Another Ride
             </Link>
           </div>

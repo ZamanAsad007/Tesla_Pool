@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Car,
   Users,
   MapPin,
   CheckCircle2,
@@ -241,8 +240,8 @@ export function ActivePoolPage() {
       <div className="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-6 backdrop-blur shadow-xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <Car className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700/80 overflow-hidden flex items-center justify-center shadow-md shadow-emerald-500/10 flex-shrink-0 p-1.5">
+              <img src="/logo.svg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight">{pool.tesla.name} Pool</h2>
