@@ -1,7 +1,8 @@
 import { prisma } from '../../lib/prisma';
+import { canJoin } from '../pools/matching';
 
-export async function getOpenRequests(areaId?: number) {
-  return prisma.rideRequest.findMany({
+export async function getOpenRequests(areaId?: number, driverId?: string) {
+  const requests = await prisma.rideRequest.findMany({
     where: {
       status: 'REQUESTED',
       ...(areaId ? { pickupAreaId: areaId } : {}),
@@ -18,6 +19,38 @@ export async function getOpenRequests(areaId?: number) {
       },
     },
     orderBy: { createdAt: 'asc' },
+  });
+
+  if (!driverId) {
+    return requests;
+  }
+
+  const activePool = await getDriverActivePool(driverId);
+  if (!activePool) {
+    return requests;
+  }
+
+  return requests.map((req) => {
+    const matching = canJoin(
+      {
+        status: activePool.status,
+        occupiedSeats: activePool.occupiedSeats,
+        capacitySnapshot: activePool.capacitySnapshot,
+      },
+      activePool.memberships,
+      {
+        seats: req.seats,
+        pickupAreaId: req.pickupAreaId,
+        dropoffArea: {
+          corridor: req.dropoffArea.corridor,
+        },
+      }
+    );
+
+    return {
+      ...req,
+      matchesActivePool: matching.allowed,
+    };
   });
 }
 

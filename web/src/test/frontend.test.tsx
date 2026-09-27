@@ -15,6 +15,7 @@ import { formatBdt } from '../utils/format';
 import { calculateDistanceKm, estimateFarePaisa } from '../utils/distance';
 import { LoginPage } from '../pages/LoginPage';
 import { RequestRidePage } from '../pages/passenger/RequestRidePage';
+import { DriverDashboardPage } from '../pages/driver/DriverDashboardPage';
 import { apiClient } from '../api/client';
 
 function renderWithProviders(ui: React.ReactElement, initialRoute: string = '/') {
@@ -250,6 +251,109 @@ describe('Frontend Component & Flow Suite', () => {
 
       expect(screen.getByDisplayValue(/Banani/i)).toBeInTheDocument();
       expect(screen.getByDisplayValue(/Uttara/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Driver Dashboard Matching Feed (§12)', () => {
+    it('badges matching requests, sorts compatible first, and enforces appropriate button states', async () => {
+      vi.spyOn(apiClient, 'get').mockImplementation(async (url: string) => {
+        if (url === '/teslas/mine') {
+          return {
+            tesla: {
+              id: 'tesla-bullet',
+              name: 'Bullet',
+              capacity: 3,
+              online: true,
+            },
+          };
+        }
+        if (url === '/driver/active-pool') {
+          return {
+            pool: {
+              id: 'pool-active-1',
+              status: 'MATCHED',
+              occupiedSeats: 1,
+              capacitySnapshot: 3,
+              tesla: { id: 'tesla-bullet', name: 'Bullet', capacity: 3 },
+              memberships: [
+                {
+                  id: 'm-nusrat',
+                  passengerId: 'p-nusrat',
+                  seatCount: 1,
+                  passenger: { id: 'p-nusrat', name: 'Nusrat' },
+                  rideRequest: {
+                    pickupArea: { id: 1, name: 'Banani', corridor: 'NORTH' },
+                    dropoffArea: { id: 2, name: 'Mohakhali', corridor: 'NORTH' },
+                  },
+                },
+              ],
+            },
+          };
+        }
+        if (url === '/areas') {
+          return [
+            { id: 1, name: 'Banani', corridor: 'NORTH' },
+            { id: 2, name: 'Mohakhali', corridor: 'NORTH' },
+            { id: 5, name: 'Dhanmondi', corridor: 'CENTER' },
+          ];
+        }
+        if (url.startsWith('/driver/requests')) {
+          return {
+            requests: [
+              // In raw API response, Dhanmondi is first in the array
+              {
+                id: 'req-dhanmondi',
+                passengerId: 'p-shirin',
+                pickupAreaId: 5,
+                dropoffAreaId: 2,
+                seats: 1,
+                status: 'REQUESTED',
+                createdAt: '2026-09-27T10:00:00Z',
+                passenger: { id: 'p-shirin', name: 'Shirin', email: 'shirin@passenger.test' },
+                pickupArea: { id: 5, name: 'Dhanmondi', corridor: 'CENTER' },
+                dropoffArea: { id: 2, name: 'Mohakhali', corridor: 'NORTH' },
+                fareSnapshots: [{ totalPaisa: 3500 }],
+                matchesActivePool: false,
+              },
+              // Rafiq is second in the raw array, but matches active pool
+              {
+                id: 'req-rafiq',
+                passengerId: 'p-rafiq',
+                pickupAreaId: 1,
+                dropoffAreaId: 2,
+                seats: 1,
+                status: 'REQUESTED',
+                createdAt: '2026-09-27T10:05:00Z',
+                passenger: { id: 'p-rafiq', name: 'Rafiq', email: 'rafiq@passenger.test' },
+                pickupArea: { id: 1, name: 'Banani', corridor: 'NORTH' },
+                dropoffArea: { id: 2, name: 'Mohakhali', corridor: 'NORTH' },
+                fareSnapshots: [{ totalPaisa: 3200 }],
+                matchesActivePool: true,
+              },
+            ],
+          };
+        }
+        return {};
+      });
+
+      renderWithProviders(<DriverDashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Rafiq')).toBeInTheDocument();
+        expect(screen.getByText('Shirin')).toBeInTheDocument();
+      });
+
+      // Badging asserts (§12)
+      expect(screen.getByText(/Compatible Match/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Incompatible Route/i).length).toBeGreaterThanOrEqual(1);
+
+      // Action button asserts
+      expect(screen.getByRole('button', { name: /Add to Active Pool/i })).toBeEnabled();
+      expect(screen.getByRole('button', { name: /Incompatible Route/i })).toBeDisabled();
+
+      // Sorting assert: Rafiq (compatible match) should be rendered before Shirin (incompatible)
+      const passengerNames = screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent);
+      expect(passengerNames).toEqual(['Rafiq', 'Shirin']);
     });
   });
 });
