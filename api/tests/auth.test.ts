@@ -219,4 +219,31 @@ describe('Auth Module Integration Tests', () => {
       expect(res.body.error.code).toBe('FORBIDDEN');
     });
   });
+
+  describe('GET /api/v1/auth/me', () => {
+    it('returns current user profile and wallet balance with valid token', async () => {
+      const loginRes = await request(app)
+        .post('/api/v1/auth/login')
+        .send({ email: 'nusrat@passenger.test', password: 'password123' });
+
+      const token = loginRes.body.token;
+
+      const res = await request(app)
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.user).toMatchObject({
+        email: 'nusrat@passenger.test',
+        role: 'PASSENGER',
+      });
+      expect(typeof res.body.user.walletBalancePaisa).toBe('number');
+    });
+
+    it('rejects unauthenticated request with 401 UNAUTHORIZED', async () => {
+      const res = await request(app).get('/api/v1/auth/me');
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+  });
 });

@@ -377,6 +377,7 @@ describe('Phase 6: Tesla Pooling, Matching, Fares, Payments & Concurrency Tests'
       expect(payRes.status).toBe(200);
       expect(payRes.body.payment.status).toBe('SETTLED');
       expect(payRes.body.payment.method).toBe('TESLAPAY');
+      expect(payRes.body.walletBalancePaisa).toBe(initialBalance - payment!.amountPaisa);
 
       // Verify wallet was atomically debited
       const debitedUser = await prisma.user.findUnique({ where: { id: nusratId } });

@@ -34,6 +34,8 @@ export async function processPayment(
   }
 
   return prisma.$transaction(async (tx) => {
+    let updatedBalancePaisa: number | undefined;
+
     if (input.method === 'TESLAPAY') {
       const passenger = await tx.user.findUnique({
         where: { id: payment.membership.passengerId },
@@ -52,14 +54,18 @@ export async function processPayment(
       }
 
       // Debit passenger wallet
-      await tx.user.update({
+      const updatedUser = await tx.user.update({
         where: { id: passenger.id },
         data: {
           walletBalancePaisa: {
             decrement: payment.amountPaisa,
           },
         },
+        select: {
+          walletBalancePaisa: true,
+        },
       });
+      updatedBalancePaisa = updatedUser.walletBalancePaisa;
     }
 
     // Settle payment record
@@ -72,7 +78,10 @@ export async function processPayment(
       },
     });
 
-    return updated;
+    return {
+      payment: updated,
+      walletBalancePaisa: updatedBalancePaisa,
+    };
   });
 }
 
