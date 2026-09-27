@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Zap, Users, ShieldCheck, MapPin, ArrowRight } from 'lucide-react';
+import { Users, ShieldCheck, MapPin, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export function HomePage() {
@@ -12,7 +12,7 @@ export function HomePage() {
       </div>
 
       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-emerald-400 text-sm mb-6 shadow-inner">
-        <Zap className="w-4 h-4" />
+        <img src="/logo.svg" alt="" className="w-4 h-4 object-contain inline-block" />
         <span>Easy-Bike Economics: ৳10 base + ৳10/km • 20% Pool Discount</span>
       </div>
 

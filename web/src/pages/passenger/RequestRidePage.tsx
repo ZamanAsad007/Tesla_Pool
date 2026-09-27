@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MapPin, Users, Zap, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { MapPin, Users, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { calculateDistanceKm, estimateFarePaisa } from '../../utils/distance';
 import { formatBdt } from '../../utils/format';
@@ -135,8 +135,8 @@ export function RequestRidePage() {
               Affordable electric rickshaw pooling across Dhaka corridors
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-            <Zap className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700/80 overflow-hidden flex items-center justify-center shadow-md shadow-emerald-500/10 flex-shrink-0 p-1.5">
+            <img src="/logo.svg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-contain" />
           </div>
         </div>
 

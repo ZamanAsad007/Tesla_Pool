@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { CheckCircle2, Clock, XCircle, AlertCircle, Users, Zap, Car } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, AlertCircle, Users } from 'lucide-react';
 import { formatBdt } from '../utils/format';
 
 export type RideStatus = 'REQUESTED' | 'MATCHED' | 'ARRIVED' | 'STARTED' | 'COMPLETED' | 'CANCELLED';
@@ -16,21 +16,21 @@ export function StatusBadge({ status }: { status: RideStatus | string }) {
     case 'MATCHED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-          <Car className="w-3.5 h-3.5" />
+          <img src="/logo.svg" alt="" className="w-3.5 h-3.5 object-contain" />
           Matched
         </span>
       );
     case 'ARRIVED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-          <Zap className="w-3.5 h-3.5" />
+          <img src="/logo.svg" alt="" className="w-3.5 h-3.5 object-contain" />
           Driver Arrived
         </span>
       );
     case 'STARTED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          <Zap className="w-3.5 h-3.5 animate-pulse" />
+          <img src="/logo.svg" alt="" className="w-3.5 h-3.5 object-contain animate-pulse" />
           Trip in Progress
         </span>
       );
