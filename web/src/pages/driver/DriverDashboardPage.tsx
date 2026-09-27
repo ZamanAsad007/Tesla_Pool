@@ -77,6 +77,7 @@ interface OpenRideRequest {
     distancePaisa: number;
     discountPaisa: number;
   }>;
+  matchesActivePool?: boolean;
 }
 
 export function DriverDashboardPage() {
@@ -218,6 +219,18 @@ export function DriverDashboardPage() {
       </div>
     );
   }
+
+  // Matching requests get badged and sorted first when an active pool exists (§12)
+  const sortedRequests = [...openRequests].sort((a, b) => {
+    if (activePool) {
+      const aMatch = a.matchesActivePool ? 1 : 0;
+      const bMatch = b.matchesActivePool ? 1 : 0;
+      if (aMatch !== bMatch) {
+        return bMatch - aMatch;
+      }
+    }
+    return 0;
+  });
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -402,23 +415,42 @@ export function DriverDashboardPage() {
           </div>
         ) : isLoadingFeed ? (
           <LoadingSpinner message="Scanning for passenger requests..." />
-        ) : openRequests.length === 0 ? (
+        ) : sortedRequests.length === 0 ? (
           <EmptyState
             title="No open ride requests right now"
             description="Waiting for passengers in Dhaka to submit ride requests. This list refreshes every 5 seconds."
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {openRequests.map((req) => {
+            {sortedRequests.map((req) => {
               const fare = req.fareSnapshots?.[0];
+              const isMatch = Boolean(activePool && req.matchesActivePool === true);
+              const isIncompatible = Boolean(activePool && req.matchesActivePool === false);
+
               return (
                 <div
                   key={req.id}
-                  className="bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-5 backdrop-blur shadow-sm space-y-4 transition"
+                  className={`border rounded-2xl p-5 backdrop-blur shadow-sm space-y-4 transition ${
+                    isMatch
+                      ? 'bg-slate-900/90 border-emerald-500/60 ring-1 ring-emerald-500/20'
+                      : 'bg-slate-900/80 border-slate-800 hover:border-emerald-500/40'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-white">{req.passenger.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-white">{req.passenger.name}</h4>
+                        {isMatch && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                            <Zap className="w-3 h-3" /> Compatible Match
+                          </span>
+                        )}
+                        {isIncompatible && (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-medium">
+                            Incompatible Route
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-slate-500 font-mono">
                         Req #{req.id.slice(0, 8)}
                       </span>
@@ -473,6 +505,14 @@ export function DriverDashboardPage() {
                           title="Not enough remaining seats in current pool"
                         >
                           <span>Pool Full</span>
+                        </button>
+                      ) : req.matchesActivePool === false ? (
+                        <button
+                          disabled
+                          className="px-3 py-2 bg-slate-800/80 text-slate-500 font-semibold rounded-xl text-xs cursor-not-allowed border border-slate-700/50 flex items-center gap-1"
+                          title="Route does not match active pool pickup or destination corridor"
+                        >
+                          <span>Incompatible Route</span>
                         </button>
                       ) : (
                         <button
