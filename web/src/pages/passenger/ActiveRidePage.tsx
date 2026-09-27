@@ -93,7 +93,7 @@ interface PoolDetail {
 export function ActiveRidePage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, refreshUser, updateUser } = useAuth();
 
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -141,9 +141,13 @@ export function ActiveRidePage() {
   // Pay mutation
   const payMutation = useMutation({
     mutationFn: ({ paymentId, method }: { paymentId: string; method: 'TESLAPAY' | 'CASH' }) =>
-      apiClient.post(`/payments/${paymentId}/pay`, { method }),
-    onSuccess: () => {
+      apiClient.post<{ payment: any; walletBalancePaisa?: number }>(`/payments/${paymentId}/pay`, { method }),
+    onSuccess: (data) => {
       setActionError(null);
+      if (typeof data?.walletBalancePaisa === 'number') {
+        updateUser({ walletBalancePaisa: data.walletBalancePaisa });
+      }
+      refreshUser();
       queryClient.invalidateQueries({ queryKey: ['ride-request', id] });
       queryClient.invalidateQueries({ queryKey: ['pool', ride?.poolId] });
     },
