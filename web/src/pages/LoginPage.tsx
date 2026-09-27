@@ -63,8 +63,8 @@ export function LoginPage() {
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md bg-slate-900/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 backdrop-blur shadow-xl">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#11182a] border border-slate-700/80 mb-3 shadow-lg shadow-emerald-500/10 overflow-hidden p-0.5">
-            <img src="/logo.jpg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-cover rounded-xl" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/80 mb-3 shadow-lg shadow-emerald-500/10 overflow-hidden p-1.5">
+            <img src="/logo.svg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">
             {isRegister ? 'Create an Account' : 'Welcome Back'}

@@ -16,8 +16,8 @@ export function Navbar() {
     <header className="border-b border-slate-700/60 bg-slate-900/70 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
       <div className="flex items-center gap-6">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="h-9 w-9 rounded-xl bg-[#11182a] border border-slate-700/60 overflow-hidden flex items-center justify-center shadow-md shadow-emerald-500/10 group-hover:scale-105 transition flex-shrink-0">
-            <img src="/logo.jpg" alt="Dhaka Tesla Pool Logo" className="h-full w-full object-cover" />
+          <div className="h-9 w-9 rounded-xl bg-slate-800/80 border border-slate-700/60 overflow-hidden flex items-center justify-center shadow-md shadow-emerald-500/10 group-hover:scale-105 transition flex-shrink-0 p-1">
+            <img src="/logo.svg" alt="Dhaka Tesla Pool Logo" className="h-full w-full object-contain" />
           </div>
           <div>
             <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">

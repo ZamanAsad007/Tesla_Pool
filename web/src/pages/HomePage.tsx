@@ -7,8 +7,8 @@ export function HomePage() {
 
   return (
     <div className="flex-1 flex flex-col justify-center items-center text-center px-6 py-12 max-w-4xl mx-auto">
-      <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-[#11182a] border border-slate-700/80 mb-6 shadow-2xl shadow-emerald-500/15 overflow-hidden p-1">
-        <img src="/logo.jpg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-cover rounded-2xl" />
+      <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-slate-800/80 border border-slate-700/80 mb-6 shadow-2xl shadow-emerald-500/15 overflow-hidden p-2">
+        <img src="/logo.svg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-contain" />
       </div>
 
       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-emerald-400 text-sm mb-6 shadow-inner">
