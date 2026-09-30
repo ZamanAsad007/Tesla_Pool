@@ -33,6 +33,22 @@ poolsRouter.post(
   handleJoinPool
 );
 
+// Driver gets active pool if any
+poolsRouter.get(
+  '/active',
+  requireAuth,
+  requireRole('DRIVER'),
+  async (req, res, next) => {
+    try {
+      const { getDriverActivePool } = await import('../driver/driver.service');
+      const pool = await getDriverActivePool(req.user!.id);
+      res.json({ pool });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // Get pool view (scoped)
 poolsRouter.get('/:id', requireAuth, handleGetPool);
 

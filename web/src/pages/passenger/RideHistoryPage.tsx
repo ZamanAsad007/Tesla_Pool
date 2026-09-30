@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, Users, Calendar, ArrowRight, Zap, RefreshCw } from 'lucide-react';
+import { MapPin, Users, Calendar, ArrowRight, RefreshCw } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { formatBdt } from '../../utils/format';
 import {
@@ -56,7 +56,10 @@ export function RideHistoryPage() {
     isRefetching,
   } = useQuery<RideRequestItem[]>({
     queryKey: ['my-rides'],
-    queryFn: () => apiClient.get<RideRequestItem[]>('/ride-requests/mine'),
+    queryFn: async () => {
+      const res = await apiClient.get<any>('/ride-requests/mine');
+      return (Array.isArray(res) ? res : res?.requests || []) as RideRequestItem[];
+    },
   });
 
   if (isLoading) {
@@ -105,7 +108,7 @@ export function RideHistoryPage() {
             to="/passenger/request"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20"
           >
-            <Zap className="w-4 h-4" />
+            <img src="/logo.svg" alt="" className="w-4 h-4 object-contain brightness-0" />
             Request New Ride
           </Link>
         </div>
@@ -142,7 +145,7 @@ export function RideHistoryPage() {
               to="/passenger/request"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition"
             >
-              <Zap className="w-4 h-4" />
+              <img src="/logo.svg" alt="" className="w-4 h-4 object-contain brightness-0" />
               Request a Ride
             </Link>
           }

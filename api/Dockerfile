@@ -2,7 +2,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package*.json ./
 RUN npm install
 
 COPY tsconfig.json ./
@@ -19,14 +19,16 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4000
 
-COPY package.json ./
+COPY package*.json ./
 RUN npm install --omit=dev
 
 COPY prisma/ ./prisma/
 RUN npx prisma generate
 
 COPY --from=builder /app/dist ./dist
+COPY start.sh ./
+RUN chmod +x start.sh
 
 EXPOSE 4000
 
-CMD ["node", "dist/index.js"]
+CMD ["./start.sh"]

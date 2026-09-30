@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MapPin, Users, Zap, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { MapPin, Users, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { calculateDistanceKm, estimateFarePaisa } from '../../utils/distance';
 import { formatBdt } from '../../utils/format';
@@ -40,7 +40,8 @@ export function RequestRidePage() {
   useEffect(() => {
     async function loadAreas() {
       try {
-        const data = await apiClient.get<Area[]>('/areas');
+        const res = await apiClient.get<any>('/areas');
+        const data: Area[] = Array.isArray(res) ? res : (res?.areas || []);
         setAreas(data);
         if (data.length >= 2) {
           // Default to Banani -> Uttara or first two
@@ -48,6 +49,10 @@ export function RequestRidePage() {
           const uttara = data.find((a) => a.name === 'Uttara') || data[1];
           setPickupAreaId(banani.id);
           setDropoffAreaId(uttara.id);
+        } else if (data.length === 1) {
+          setPickupAreaId(data[0].id);
+        } else {
+          setError('No service areas currently loaded in the system.');
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load service areas');
@@ -97,7 +102,8 @@ export function RequestRidePage() {
         setError('You already have an active ride request in progress.');
         // Try fetching active ride to link to it
         try {
-          const myRides = await apiClient.get<any[]>('/ride-requests/mine');
+          const myRidesRes = await apiClient.get<any>('/ride-requests/mine');
+          const myRides: any[] = Array.isArray(myRidesRes) ? myRidesRes : (myRidesRes?.requests || []);
           const active = myRides.find((r) =>
             ['REQUESTED', 'MATCHED', 'ARRIVED', 'STARTED'].includes(r.status)
           );
@@ -129,8 +135,8 @@ export function RequestRidePage() {
               Affordable electric rickshaw pooling across Dhaka corridors
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-            <Zap className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700/80 overflow-hidden flex items-center justify-center shadow-md shadow-emerald-500/10 flex-shrink-0 p-1.5">
+            <img src="/logo.svg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-contain" />
           </div>
         </div>
 
@@ -164,6 +170,9 @@ export function RequestRidePage() {
                 onChange={(e) => setPickupAreaId(Number(e.target.value))}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
+                <option value="" disabled>
+                  Select pickup location
+                </option>
                 {areas.map((area) => (
                   <option key={area.id} value={area.id}>
                     {area.name} ({area.corridor})
@@ -183,6 +192,9 @@ export function RequestRidePage() {
                 onChange={(e) => setDropoffAreaId(Number(e.target.value))}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
+                <option value="" disabled>
+                  Select dropoff destination
+                </option>
                 {areas.map((area) => (
                   <option key={area.id} value={area.id}>
                     {area.name} ({area.corridor})

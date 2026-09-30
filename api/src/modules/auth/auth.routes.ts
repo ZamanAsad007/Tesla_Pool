@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { validate } from '../../middleware/validate';
+import { requireAuth } from '../../middleware/auth';
 import { registerSchema, loginSchema } from './schemas';
-import { handleRegister, handleLogin } from './auth.controller';
+import { handleRegister, handleLogin, handleGetCurrentUser } from './auth.controller';
 
 export const authRouter = Router();
 
@@ -21,7 +22,6 @@ const authLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test',
 });
 
-authRouter.use(authLimiter);
-
-authRouter.post('/register', validate(registerSchema), handleRegister);
-authRouter.post('/login', validate(loginSchema), handleLogin);
+authRouter.post('/register', authLimiter, validate(registerSchema), handleRegister);
+authRouter.post('/login', authLimiter, validate(loginSchema), handleLogin);
+authRouter.get('/me', requireAuth, handleGetCurrentUser);

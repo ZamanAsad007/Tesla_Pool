@@ -7,8 +7,8 @@ export async function handleProcessPayment(
   next: NextFunction
 ): Promise<void> {
   try {
-    const payment = await processPayment(req.params.id, req.body, req.user!);
-    res.json({ payment });
+    const result = await processPayment(req.params.id, req.body, req.user!);
+    res.json({ payment: result.payment, walletBalancePaisa: result.walletBalancePaisa });
   } catch (error) {
     next(error);
   }

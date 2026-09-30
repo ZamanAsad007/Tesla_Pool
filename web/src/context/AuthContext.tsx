@@ -25,6 +25,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string, role: UserRole) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateUser: (partial: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
+        // Refresh latest profile & wallet balance from server in background
+        apiClient
+          .get<{ user: User }>('/auth/me')
+          .then((res) => {
+            if (res?.user) {
+              setUser(res.user);
+              localStorage.setItem('tp_user', JSON.stringify(res.user));
+            }
+          })
+          .catch(() => {});
       }
     } catch {
       localStorage.removeItem('tp_token');
@@ -79,7 +90,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = async () => {
-    // If needed, re-fetch profile or update
+    try {
+      const res = await apiClient.get<{ user: User }>('/auth/me');
+      if (res?.user) {
+        setUser(res.user);
+        localStorage.setItem('tp_user', JSON.stringify(res.user));
+      }
+    } catch (err) {
+      console.warn('Failed to refresh user profile:', err);
+    }
+  };
+
+  const updateUser = (partial: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const next = { ...prev, ...partial };
+      localStorage.setItem('tp_user', JSON.stringify(next));
+      return next;
+    });
   };
 
   return (
@@ -93,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshUser,
+        updateUser,
       }}
     >
       {children}

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Zap, Users, ShieldCheck, MapPin, ArrowRight } from 'lucide-react';
+import { Users, ShieldCheck, MapPin, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export function HomePage() {
@@ -7,8 +7,12 @@ export function HomePage() {
 
   return (
     <div className="flex-1 flex flex-col justify-center items-center text-center px-6 py-12 max-w-4xl mx-auto">
+      <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-slate-800/80 border border-slate-700/80 mb-6 shadow-2xl shadow-emerald-500/15 overflow-hidden p-2">
+        <img src="/logo.svg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-contain" />
+      </div>
+
       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-emerald-400 text-sm mb-6 shadow-inner">
-        <Zap className="w-4 h-4" />
+        <img src="/logo.svg" alt="" className="w-4 h-4 object-contain inline-block" />
         <span>Easy-Bike Economics: ৳10 base + ৳10/km • 20% Pool Discount</span>
       </div>
 

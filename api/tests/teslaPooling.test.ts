@@ -377,6 +377,7 @@ describe('Phase 6: Tesla Pooling, Matching, Fares, Payments & Concurrency Tests'
       expect(payRes.status).toBe(200);
       expect(payRes.body.payment.status).toBe('SETTLED');
       expect(payRes.body.payment.method).toBe('TESLAPAY');
+      expect(payRes.body.walletBalancePaisa).toBe(initialBalance - payment!.amountPaisa);
 
       // Verify wallet was atomically debited
       const debitedUser = await prisma.user.findUnique({ where: { id: nusratId } });
@@ -423,6 +424,77 @@ describe('Phase 6: Tesla Pooling, Matching, Fares, Payments & Concurrency Tests'
       const checkPayment = await prisma.payment.findUnique({ where: { id: payment!.id } });
       expect(checkPayment!.status).toBe('PENDING');
 
+    });
+  });
+
+  describe('T12: Driver Feed Compatibility Flag (§4, §7, §11)', () => {
+    it('with Nusrat pooled, Rafiq flags matchesActivePool: true, Dhanmondi row flags false, matching /pools/:id/join behavior', async () => {
+      // 1. Nusrat requests Banani -> Mohakhali (NORTH)
+      const r1 = await request(app)
+        .post('/api/v1/ride-requests')
+        .set('Authorization', `Bearer ${nusratToken}`)
+        .send({ pickupAreaId: bananiId, dropoffAreaId: mohakhaliId, seats: 1 });
+      expect(r1.status).toBe(201);
+
+      // 2. Driver Jashim accepts Nusrat's request and creates pool (status: MATCHED, occupied: 1)
+      const poolRes = await request(app)
+        .post('/api/v1/pools')
+        .set('Authorization', `Bearer ${driverToken}`)
+        .send({ rideRequestId: r1.body.request.id });
+      expect(poolRes.status).toBe(201);
+      const poolId = poolRes.body.pool.id;
+
+      // 3. Rafiq creates candidate request: Banani -> Gulshan 1 (NORTH, matchable)
+      const r2 = await request(app)
+        .post('/api/v1/ride-requests')
+        .set('Authorization', `Bearer ${rafiqToken}`)
+        .send({ pickupAreaId: bananiId, dropoffAreaId: gulshan1Id, seats: 1 });
+      expect(r2.status).toBe(201);
+
+      // 4. Shirin creates candidate request: Dhanmondi -> Mohakhali (different pickup area, not matchable)
+      const r3 = await request(app)
+        .post('/api/v1/ride-requests')
+        .set('Authorization', `Bearer ${shirinToken}`)
+        .send({ pickupAreaId: dhanmondiId, dropoffAreaId: mohakhaliId, seats: 1 });
+      expect(r3.status).toBe(201);
+
+      // 5. Driver queries open requests feed
+      const feedRes = await request(app)
+        .get('/api/v1/driver/requests')
+        .set('Authorization', `Bearer ${driverToken}`);
+
+      expect(feedRes.status).toBe(200);
+      const feedRequests: any[] = feedRes.body.requests;
+      expect(feedRequests.length).toBe(2);
+
+      const rafiqRow = feedRequests.find((r) => r.id === r2.body.request.id);
+      const dhanmondiRow = feedRequests.find((r) => r.id === r3.body.request.id);
+
+      expect(rafiqRow).toBeDefined();
+      expect(dhanmondiRow).toBeDefined();
+
+      // Assert feed flags
+      expect(rafiqRow.matchesActivePool).toBe(true);
+      expect(dhanmondiRow.matchesActivePool).toBe(false);
+
+      // 6. Assert no drift between feed flag and POST /pools/:id/join endpoint:
+      // Incompatible request (matchesActivePool: false) MUST be rejected by /join
+      const rejectJoin = await request(app)
+        .post(`/api/v1/pools/${poolId}/join`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .send({ rideRequestId: r3.body.request.id });
+
+      expect(rejectJoin.status).toBe(409);
+      expect(rejectJoin.body.error.code).toBe('NOT_COMPATIBLE');
+
+      // Compatible request (matchesActivePool: true) MUST be accepted by /join
+      const acceptJoin = await request(app)
+        .post(`/api/v1/pools/${poolId}/join`)
+        .set('Authorization', `Bearer ${driverToken}`)
+        .send({ rideRequestId: r2.body.request.id });
+
+      expect(acceptJoin.status).toBe(200);
+      expect(acceptJoin.body.occupiedSeats).toBe(2);
     });
   });
 });

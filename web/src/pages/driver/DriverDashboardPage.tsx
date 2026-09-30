@@ -1,19 +1,18 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Car,
   Power,
   Users,
   MapPin,
-  Zap,
   Filter,
   RefreshCw,
   ArrowRight,
+  UserPlus,
 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { formatBdt } from '../../utils/format';
-import { LoadingSpinner, EmptyState, ErrorBanner } from '../../components/Common';
+import { LoadingSpinner, EmptyState, ErrorBanner, StatusBadge } from '../../components/Common';
 
 interface TeslaVehicle {
   id: string;
@@ -26,6 +25,33 @@ interface Area {
   id: number;
   name: string;
   corridor: string;
+}
+
+interface ActivePoolInfo {
+  id: string;
+  driverId: string;
+  teslaId: string;
+  status: 'MATCHED' | 'ARRIVED' | 'STARTED' | 'COMPLETED' | 'CANCELLED';
+  occupiedSeats: number;
+  capacitySnapshot: number;
+  tesla: {
+    id: string;
+    name: string;
+    capacity: number;
+  };
+  memberships: Array<{
+    id: string;
+    passengerId: string;
+    seatCount: number;
+    passenger: {
+      id: string;
+      name: string;
+    };
+    rideRequest: {
+      pickupArea: Area;
+      dropoffArea: Area;
+    };
+  }>;
 }
 
 interface OpenRideRequest {
@@ -49,6 +75,7 @@ interface OpenRideRequest {
     distancePaisa: number;
     discountPaisa: number;
   }>;
+  matchesActivePool?: boolean;
 }
 
 export function DriverDashboardPage() {
@@ -57,6 +84,7 @@ export function DriverDashboardPage() {
 
   const [selectedAreaId, setSelectedAreaId] = useState<number | ''>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [conflictPoolId, setConflictPoolId] = useState<string | null>(null);
 
   // 1. Fetch driver's vehicle
   const {
@@ -65,16 +93,34 @@ export function DriverDashboardPage() {
     error: teslaError,
   } = useQuery<TeslaVehicle | null>({
     queryKey: ['my-tesla'],
-    queryFn: () => apiClient.get<TeslaVehicle>('/teslas/mine'),
+    queryFn: async () => {
+      const res = await apiClient.get<any>('/teslas/mine');
+      return (res?.tesla ?? res) as TeslaVehicle | null;
+    },
   });
 
-  // 2. Fetch areas for filter dropdown
+  // 2. Fetch driver's active pool (if currently operating a pool)
+  const {
+    data: activePool,
+  } = useQuery<ActivePoolInfo | null>({
+    queryKey: ['driver-active-pool'],
+    queryFn: async () => {
+      const res = await apiClient.get<any>('/driver/active-pool');
+      return (res?.pool ?? null) as ActivePoolInfo | null;
+    },
+    refetchInterval: 5000,
+  });
+
+  // 3. Fetch areas for filter dropdown
   const { data: areas = [] } = useQuery<Area[]>({
     queryKey: ['areas'],
-    queryFn: () => apiClient.get<Area[]>('/areas'),
+    queryFn: async () => {
+      const res = await apiClient.get<any>('/areas');
+      return (Array.isArray(res) ? res : res?.areas || []) as Area[];
+    },
   });
 
-  // 3. Fetch open requests feed (poll every 5s if online)
+  // 4. Fetch open requests feed (poll every 5s if online)
   const {
     data: openRequests = [],
     isLoading: isLoadingFeed,
@@ -82,21 +128,23 @@ export function DriverDashboardPage() {
     isRefetching: isRefetchingFeed,
   } = useQuery<OpenRideRequest[]>({
     queryKey: ['open-requests', selectedAreaId],
-    queryFn: () => {
+    queryFn: async () => {
       const url = selectedAreaId
         ? `/driver/requests?areaId=${selectedAreaId}`
         : '/driver/requests';
-      return apiClient.get<OpenRideRequest[]>(url);
+      const res = await apiClient.get<any>(url);
+      return (Array.isArray(res) ? res : res?.requests || []) as OpenRideRequest[];
     },
     enabled: !!tesla?.online,
     refetchInterval: tesla?.online ? 5000 : false,
   });
 
-  // 4. Toggle online status mutation
+  // 5. Toggle online status mutation
   const toggleOnlineMutation = useMutation({
-    mutationFn: (newStatus: boolean) => {
+    mutationFn: async (newStatus: boolean) => {
       if (!tesla) throw new Error('No vehicle registered');
-      return apiClient.patch<TeslaVehicle>(`/teslas/${tesla.id}`, { online: newStatus });
+      const res = await apiClient.patch<any>(`/teslas/${tesla.id}`, { online: newStatus });
+      return (res?.tesla ?? res) as TeslaVehicle;
     },
     onSuccess: (updated) => {
       setErrorMsg(null);
@@ -108,16 +156,48 @@ export function DriverDashboardPage() {
     },
   });
 
-  // 5. Accept request and create pool mutation
+  // 6. Accept request and create pool mutation
   const createPoolMutation = useMutation({
-    mutationFn: (rideRequestId: string) =>
-      apiClient.post<{ id: string }>('/pools', { rideRequestId }),
+    mutationFn: async (rideRequestId: string) => {
+      const res = await apiClient.post<any>('/pools', { rideRequestId });
+      return (res?.pool ?? res) as { id: string };
+    },
     onSuccess: (res) => {
       setErrorMsg(null);
+      setConflictPoolId(null);
+      queryClient.invalidateQueries({ queryKey: ['driver-active-pool'] });
       navigate(`/driver/pool/${res.id}`);
     },
     onError: (err: any) => {
-      setErrorMsg(err.message || 'Failed to accept ride request');
+      if (err.code === 'TESLA_BUSY') {
+        const poolId = err.details?.poolId || activePool?.id;
+        if (poolId) {
+          setConflictPoolId(poolId);
+        }
+        setErrorMsg('Your Tesla already operates an active pool. Complete or cancel it before starting a new one.');
+        queryClient.invalidateQueries({ queryKey: ['driver-active-pool'] });
+      } else {
+        setErrorMsg(err.message || 'Failed to accept ride request');
+      }
+    },
+  });
+
+  // 7. Join request to existing active pool mutation
+  const joinPoolMutation = useMutation({
+    mutationFn: async ({ poolId, rideRequestId }: { poolId: string; rideRequestId: string }) => {
+      const res = await apiClient.post<any>(`/pools/${poolId}/join`, { rideRequestId });
+      return res;
+    },
+    onSuccess: () => {
+      setErrorMsg(null);
+      queryClient.invalidateQueries({ queryKey: ['driver-active-pool'] });
+      queryClient.invalidateQueries({ queryKey: ['open-requests'] });
+      if (activePool) {
+        navigate(`/driver/pool/${activePool.id}`);
+      }
+    },
+    onError: (err: any) => {
+      setErrorMsg(err.message || 'Failed to add rider to active pool');
     },
   });
 
@@ -138,6 +218,18 @@ export function DriverDashboardPage() {
     );
   }
 
+  // Matching requests get badged and sorted first when an active pool exists (§12)
+  const sortedRequests = [...openRequests].sort((a, b) => {
+    if (activePool) {
+      const aMatch = a.matchesActivePool ? 1 : 0;
+      const bMatch = b.matchesActivePool ? 1 : 0;
+      if (aMatch !== bMatch) {
+        return bMatch - aMatch;
+      }
+    }
+    return 0;
+  });
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
       {/* Top Header & Vehicle Card */}
@@ -145,13 +237,13 @@ export function DriverDashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors p-1.5 overflow-hidden flex-shrink-0 ${
                 tesla.online
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-slate-800 text-slate-500 border border-slate-700'
+                  ? 'bg-slate-800/80 border border-emerald-500/30 shadow-md shadow-emerald-500/10'
+                  : 'bg-slate-800/80 border border-slate-700 opacity-60'
               }`}
             >
-              <Car className="w-6 h-6" />
+              <img src="/logo.svg" alt="Dhaka Tesla Pool Logo" className="w-full h-full object-contain" />
             </div>
 
             <div>
@@ -201,6 +293,54 @@ export function DriverDashboardPage() {
       </div>
 
       {errorMsg && <ErrorBanner message={errorMsg} />}
+
+      {/* Active Pool Alert Banner if driver currently operates an active pool */}
+      {activePool && (
+        <div className="bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/50 rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <h3 className="text-sm font-bold text-white tracking-wide">
+                Active Pool #{activePool.id.slice(0, 8)} in Progress
+              </h3>
+              <StatusBadge status={activePool.status} />
+            </div>
+            <p className="text-xs text-slate-300">
+              Occupying <strong>{activePool.occupiedSeats}</strong> of <strong>{activePool.capacitySnapshot}</strong> seats
+              {activePool.memberships && activePool.memberships.length > 0 && (
+                <span> • {activePool.memberships.length} active rider{activePool.memberships.length > 1 ? 's' : ''}</span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              to={`/driver/pool/${activePool.id}`}
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
+            >
+              <span>View Active Pool</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {conflictPoolId && !activePool && (
+        <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-500/40 flex items-center justify-between">
+          <div className="text-xs text-amber-200">
+            <strong className="block font-semibold">Active Pool In Progress</strong>
+            Your vehicle already operates an active pool.
+          </div>
+          <Link
+            to={`/driver/pool/${conflictPoolId}`}
+            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition"
+          >
+            Go to Active Pool
+          </Link>
+        </div>
+      )}
 
       {/* Requests Feed Section */}
       <div className="space-y-4">
@@ -273,23 +413,42 @@ export function DriverDashboardPage() {
           </div>
         ) : isLoadingFeed ? (
           <LoadingSpinner message="Scanning for passenger requests..." />
-        ) : openRequests.length === 0 ? (
+        ) : sortedRequests.length === 0 ? (
           <EmptyState
             title="No open ride requests right now"
             description="Waiting for passengers in Dhaka to submit ride requests. This list refreshes every 5 seconds."
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {openRequests.map((req) => {
+            {sortedRequests.map((req) => {
               const fare = req.fareSnapshots?.[0];
+              const isMatch = Boolean(activePool && req.matchesActivePool === true);
+              const isIncompatible = Boolean(activePool && req.matchesActivePool === false);
+
               return (
                 <div
                   key={req.id}
-                  className="bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-5 backdrop-blur shadow-sm space-y-4 transition"
+                  className={`border rounded-2xl p-5 backdrop-blur shadow-sm space-y-4 transition ${
+                    isMatch
+                      ? 'bg-slate-900/90 border-emerald-500/60 ring-1 ring-emerald-500/20'
+                      : 'bg-slate-900/80 border-slate-800 hover:border-emerald-500/40'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-white">{req.passenger.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-white">{req.passenger.name}</h4>
+                        {isMatch && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                            <img src="/logo.svg" alt="" className="w-3.5 h-3.5 object-contain" /> Compatible Match
+                          </span>
+                        )}
+                        {isIncompatible && (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-medium">
+                            Incompatible Route
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-slate-500 font-mono">
                         Req #{req.id.slice(0, 8)}
                       </span>
@@ -328,15 +487,58 @@ export function DriverDashboardPage() {
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => createPoolMutation.mutate(req.id)}
-                      disabled={createPoolMutation.isPending}
-                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
-                    >
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>{createPoolMutation.isPending ? 'Accepting...' : 'Accept & Start Pool'}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    {activePool ? (
+                      activePool.status === 'STARTED' ? (
+                        <button
+                          disabled
+                          className="px-3 py-2 bg-slate-800 text-slate-500 font-semibold rounded-xl text-xs cursor-not-allowed flex items-center gap-1"
+                          title="Trip is in progress. New riders cannot be added to a started pool."
+                        >
+                          <span>Trip In Progress</span>
+                        </button>
+                      ) : activePool.capacitySnapshot - activePool.occupiedSeats < req.seats ? (
+                        <button
+                          disabled
+                          className="px-3 py-2 bg-slate-800 text-slate-500 font-semibold rounded-xl text-xs cursor-not-allowed flex items-center gap-1"
+                          title="Not enough remaining seats in current pool"
+                        >
+                          <span>Pool Full</span>
+                        </button>
+                      ) : req.matchesActivePool === false ? (
+                        <button
+                          disabled
+                          className="px-3 py-2 bg-slate-800/80 text-slate-500 font-semibold rounded-xl text-xs cursor-not-allowed border border-slate-700/50 flex items-center gap-1"
+                          title="Route does not match active pool pickup or destination corridor"
+                        >
+                          <span>Incompatible Route</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            joinPoolMutation.mutate({
+                              poolId: activePool.id,
+                              rideRequestId: req.id,
+                            })
+                          }
+                          disabled={joinPoolMutation.isPending}
+                          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>{joinPoolMutation.isPending ? 'Adding...' : 'Add to Active Pool'}</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )
+                    ) : (
+                      <button
+                        onClick={() => createPoolMutation.mutate(req.id)}
+                        disabled={createPoolMutation.isPending}
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
+                      >
+                        <img src="/logo.svg" alt="" className="w-4 h-4 object-contain brightness-0" />
+                        <span>{createPoolMutation.isPending ? 'Accepting...' : 'Accept & Start Pool'}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );

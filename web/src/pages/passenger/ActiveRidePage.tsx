@@ -4,8 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MapPin,
   Users,
-  Car,
-  Zap,
   AlertTriangle,
   CheckCircle2,
   Wallet,
@@ -93,7 +91,7 @@ interface PoolDetail {
 export function ActiveRidePage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, refreshUser, updateUser } = useAuth();
 
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -104,7 +102,10 @@ export function ActiveRidePage() {
     error: rideError,
   } = useQuery<RideRequestDetail>({
     queryKey: ['ride-request', id],
-    queryFn: () => apiClient.get<RideRequestDetail>(`/ride-requests/${id}`),
+    queryFn: async () => {
+      const res = await apiClient.get<any>(`/ride-requests/${id}`);
+      return (res?.request ?? res) as RideRequestDetail;
+    },
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === 'COMPLETED' || status === 'CANCELLED' ? false : 5000;
@@ -115,7 +116,10 @@ export function ActiveRidePage() {
   // Poll pool details if ride is attached to a pool
   const { data: pool } = useQuery<PoolDetail>({
     queryKey: ['pool', ride?.poolId],
-    queryFn: () => apiClient.get<PoolDetail>(`/pools/${ride?.poolId}`),
+    queryFn: async () => {
+      const res = await apiClient.get<any>(`/pools/${ride?.poolId}`);
+      return (res?.pool ?? res) as PoolDetail;
+    },
     refetchInterval: 5000,
     enabled: !!ride?.poolId,
   });
@@ -135,9 +139,13 @@ export function ActiveRidePage() {
   // Pay mutation
   const payMutation = useMutation({
     mutationFn: ({ paymentId, method }: { paymentId: string; method: 'TESLAPAY' | 'CASH' }) =>
-      apiClient.post(`/payments/${paymentId}/pay`, { method }),
-    onSuccess: () => {
+      apiClient.post<{ payment: any; walletBalancePaisa?: number }>(`/payments/${paymentId}/pay`, { method }),
+    onSuccess: (data) => {
       setActionError(null);
+      if (typeof data?.walletBalancePaisa === 'number') {
+        updateUser({ walletBalancePaisa: data.walletBalancePaisa });
+      }
+      refreshUser();
       queryClient.invalidateQueries({ queryKey: ['ride-request', id] });
       queryClient.invalidateQueries({ queryKey: ['pool', ride?.poolId] });
     },
@@ -235,7 +243,7 @@ export function ActiveRidePage() {
           <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Car className="w-4 h-4 text-emerald-400" />
+                <img src="/logo.svg" alt="" className="w-4 h-4 object-contain" />
                 <span className="text-xs font-semibold text-white uppercase tracking-wider">
                   Assigned Electric Rickshaw
                 </span>
@@ -379,7 +387,7 @@ export function ActiveRidePage() {
               to="/passenger/request"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20"
             >
-              <Zap className="w-3.5 h-3.5" />
+              <img src="/logo.svg" alt="" className="w-4 h-4 object-contain brightness-0" />
               Request Another Ride
             </Link>
           </div>
